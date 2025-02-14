@@ -74,7 +74,7 @@ const TicketSelection = () => {
                                     <select
                                         value={ticketCount}
                                         onChange={(e) => setTicketCount(Number(e.target.value))}
-                                        className="w-full bg-[transparent] border-2 border-[#07373F] rounded-xl p-4 text-white appearance-none"
+                                        className="w-full bg-[#041E23] border-2 border-[#07373F] rounded-xl p-4 text-white appearance-none"
                                     >
                                         {[1, 2, 3, 4, 5].map(num => (
                                             <option key={num} value={num}>{num}</option>
