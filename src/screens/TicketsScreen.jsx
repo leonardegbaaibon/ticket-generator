@@ -86,25 +86,21 @@ const TicketSelection = () => {
                 </div>
               </div>
 
-              <div className="mb-8">
-                <label className="text-white mb-2 block">
-                  Number of Tickets
-                </label>
-                <div className="relative">
-                  <select
-                    value={ticketCount}
-                    onChange={(e) => setTicketCount(Number(e.target.value))}
-                    className="w-full bg-[transparent] border-2 border-[#07373F] rounded-xl p-4 text-white appearance-none"
-                  >
-                    {[1, 2, 3, 4, 5].map((num) => (
-                      <option key={num} value={num}>
-                        {num}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white" />
-                </div>
-              </div>
+                            <div className="mb-8">
+                                <label className="text-white mb-2 block">Number of Tickets</label>
+                                <div className="relative">
+                                    <select
+                                        value={ticketCount}
+                                        onChange={(e) => setTicketCount(Number(e.target.value))}
+                                        className="w-full bg-[#041E23] border-2 border-[#07373F] rounded-xl p-4 text-white appearance-none"
+                                    >
+                                        {[1, 2, 3, 4, 5].map(num => (
+                                            <option key={num} value={num}>{num}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white" />
+                                </div>
+                            </div>
 
               <div className="flex space-x-4">
                 <motion.button
