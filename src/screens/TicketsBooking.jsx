@@ -1,25 +1,56 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Upload, X } from "lucide-react";
+import { ChevronDown, Upload, X, Download, Share2 } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import html2canvas from "html2canvas";
 import Navbar from "../components/ReusableComponents/Navbar";
 import ticketBg from "../assets/TICKET.png";
+import { events } from "../data/events";
 
 const TicketBooking = () => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedTicket, setSelectedTicket] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [ticketCount, setTicketCount] = useState(1);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    specialRequest: "",
+  const { eventId } = useParams();
+  const navigate = useNavigate();
+  const event = events.find(e => e.id === parseInt(eventId)) || events[0];
+
+  const [currentStep, setCurrentStep] = useState(() => {
+    const savedStep = sessionStorage.getItem('currentStep');
+    return savedStep ? parseInt(savedStep) : 1;
+  });
+  
+  const [selectedTicket, setSelectedTicket] = useState(() => {
+    const savedTicket = sessionStorage.getItem('selectedTicket');
+    return savedTicket ? parseInt(savedTicket) : null;
+  });
+  
+  const [ticketCount, setTicketCount] = useState(() => {
+    const savedCount = sessionStorage.getItem('ticketCount');
+    return savedCount ? parseInt(savedCount) : 1;
+  });
+  
+  const [imagePreview, setImagePreview] = useState(() => {
+    const savedImage = sessionStorage.getItem('imagePreview');
+    return savedImage || null;
   });
 
-  const ticketTypes = [
-    { type: "REGULAR ACCESS", price: "Free", availability: "20/52" },
-    { type: "VIP ACCESS", price: "$150", availability: "20/52" },
-    { type: "VVIP ACCESS", price: "$150", availability: "20/52" },
-  ];
+  const [formData, setFormData] = useState(() => {
+    const savedFormData = localStorage.getItem('userFormData');
+    return savedFormData ? JSON.parse(savedFormData) : {
+      name: "",
+      email: "",
+      specialRequest: "",
+    };
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('currentStep', currentStep);
+    sessionStorage.setItem('selectedTicket', selectedTicket);
+    sessionStorage.setItem('ticketCount', ticketCount);
+    sessionStorage.setItem('imagePreview', imagePreview);
+  }, [currentStep, selectedTicket, ticketCount, imagePreview]);
+
+  useEffect(() => {
+    localStorage.setItem('userFormData', JSON.stringify(formData));
+  }, [formData]);
 
   const handleNext = () => {
     setCurrentStep(2);
@@ -33,7 +64,6 @@ const TicketBooking = () => {
     const file = event.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        // 5MB limit
         alert("File size should be less than 5MB");
         return;
       }
@@ -55,6 +85,72 @@ const TicketBooking = () => {
   };
 
   const removeImage = () => setImagePreview(null);
+
+  const saveTicketToHistory = () => {
+    const ticketData = {
+      id: Date.now(),
+      eventId: event.id,
+      eventName: event.name,
+      ticketType: selectedTicket !== null ? event.tickets[selectedTicket].type : "N/A",
+      ticketCount,
+      formData,
+      imagePreview,
+      bookingDate: new Date().toISOString(),
+      eventDetails: event
+    };
+
+    const existingTickets = JSON.parse(localStorage.getItem('ticketHistory') || '[]');
+    localStorage.setItem('ticketHistory', JSON.stringify([...existingTickets, ticketData]));
+  };
+
+  const handleCompleteBooking = () => {
+    setCurrentStep(3);
+    saveTicketToHistory();
+  };
+
+  const resetBookingForm = () => {
+    setCurrentStep(1);
+    setSelectedTicket(null);
+    setTicketCount(1);
+    setImagePreview(null);
+    sessionStorage.clear();
+    navigate('/');
+  };
+
+  const downloadTicket = async () => {
+    const ticketElement = document.getElementById('ticket-card');
+    if (ticketElement) {
+      try {
+        const canvas = await html2canvas(ticketElement);
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `${event.name}-ticket.png`;
+        link.href = dataUrl;
+        link.click();
+      } catch (error) {
+        console.error('Error downloading ticket:', error);
+      }
+    }
+  };
+
+  const shareTicket = async () => {
+    const ticketElement = document.getElementById('ticket-card');
+    if (ticketElement && navigator.share) {
+      try {
+        const canvas = await html2canvas(ticketElement);
+        const blob = await new Promise(resolve => canvas.toBlob(resolve));
+        const file = new File([blob], `${event.name}-ticket.png`, { type: 'image/png' });
+        
+        await navigator.share({
+          title: `My Ticket for ${event.name}`,
+          text: `Check out my ticket for ${event.name}!`,
+          files: [file]
+        });
+      } catch (error) {
+        console.error('Error sharing ticket:', error);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#02191D] flex flex-col items-center p-4 md:p-6 relative overflow-hidden">
@@ -89,14 +185,13 @@ const TicketBooking = () => {
 
                     <div className="relative z-10">
                       <h2 className="text-2xl md:text-4xl text-white text-center font-bold mb-2">
-                        Techember Fest '25
+                        {event.name}
                       </h2>
                       <p className="text-gray-300 text-center mb-2">
-                        Join us for an unforgettable experience at [Event Name]!
-                        Secure your spot now.
+                        {event.description}
                       </p>
                       <p className="text-gray-400 text-center">
-                        📍 [Event Location] || March 15, 2025 | 7:00 PM
+                        📍 {event.location} || {event.date} | {event.time}
                       </p>
                     </div>
                   </motion.div>
@@ -106,7 +201,7 @@ const TicketBooking = () => {
                   </label>
                   <div className="mb-6 border border-[#0E464F] rounded-[24px] bg-[#052228] p-4 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {ticketTypes.map((ticket, index) => (
+                      {event.tickets.map((ticket, index) => (
                         <motion.button
                           key={index}
                           whileHover={{ scale: 1.02 }}
@@ -152,10 +247,11 @@ const TicketBooking = () => {
                     </div>
                   </div>
 
-                  <div className="flex space-x-4 flex-col gap-4 md:flex-row mt-8 space-x-4">
+                  <div className="flex space-x-4 flex-col gap-4 md:flex-row mt-8">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
+                      onClick={() => navigate('/')}
                       className="flex-1 p-4 rounded-xl border-2 border-[#24A0B5] text-[#24A0B5] transition-colors"
                     >
                       Cancel
@@ -187,11 +283,11 @@ const TicketBooking = () => {
                       Your Ticket is Booked!
                     </h1>
                     <p className="text-gray-400 mb-8">
-                      Check your email for a copy or you can{" "}
-                      <span className="text-white">download</span>
+                      Download your ticket or share it with friends
                     </p>
 
                     <div
+                      id="ticket-card"
                       className="w-full max-w-[480px] relative bg-no-repeat bg-cover bg-center mb-8"
                       style={{
                         backgroundImage: `url(${ticketBg})`,
@@ -199,20 +295,18 @@ const TicketBooking = () => {
                         overflow: "hidden",
                       }}
                     >
-                      {/* Semi-transparent overlay to ensure text readability */}
                       <div className="absolute inset-0 bg-[#052228] bg-opacity-90 backdrop-blur-sm"></div>
 
-                      {/* Ticket content with relative positioning to appear above the overlay */}
                       <div className="relative z-10 border-2 border-[#0E464F] rounded-[24px] p-4 md:p-6">
                         <div className="mb-6">
                           <h2 className="text-xl md:text-2xl text-white font-bold">
-                            Techember Fest '25
+                            {event.name}
                           </h2>
                           <div className="flex items-center justify-center space-x-2 text-gray-400 mt-2">
-                            <span>📍 04 Rumens road, Ikoyi, Lagos</span>
+                            <span>📍 {event.location}</span>
                           </div>
                           <div className="text-gray-400 mt-1">
-                            March 15, 2025 | 7:00 PM
+                            {event.date} | {event.time}
                           </div>
                         </div>
 
@@ -230,13 +324,13 @@ const TicketBooking = () => {
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <label className="text-gray-400 text-sm">
-                                Enter your name
+                                Name
                               </label>
                               <div className="text-white">{formData.name}</div>
                             </div>
                             <div>
                               <label className="text-gray-400 text-sm">
-                                Enter your email
+                                Email
                               </label>
                               <div className="text-white">{formData.email}</div>
                             </div>
@@ -248,13 +342,13 @@ const TicketBooking = () => {
                               </label>
                               <div className="text-white">
                                 {selectedTicket !== null
-                                  ? ticketTypes[selectedTicket].type
+                                  ? event.tickets[selectedTicket].type
                                   : "N/A"}
                               </div>
                             </div>
                             <div>
                               <label className="text-gray-400 text-sm">
-                                Ticket for
+                                Quantity
                               </label>
                               <div className="text-white">{ticketCount}</div>
                             </div>
@@ -262,7 +356,7 @@ const TicketBooking = () => {
                           {formData.specialRequest && (
                             <div>
                               <label className="text-gray-400 text-sm">
-                                Special request?
+                                Special request
                               </label>
                               <div className="text-white">
                                 {formData.specialRequest}
@@ -273,30 +367,34 @@ const TicketBooking = () => {
                       </div>
                     </div>
 
-                    <div className="w-full max-w-[480px] flex justify-center">
-                      {/* <img
-                          src="/api/placeholder/400/100"
-                          alt="Barcode"
-                          className="mb-8"
-                        /> */}
-                    </div>
-
-                    <div className="flex space-x-4 flex-col gap-4 md:flex-row mt-8 space-x-4 w-full max-w-[480px] ">
+                    <div className="flex space-x-4 flex-col gap-4 md:flex-row mt-8 space-x-4 w-full max-w-[480px]">
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setCurrentStep(1)}
+                        onClick={resetBookingForm}
                         className="flex-1 p-4 rounded-xl border-2 border-[#24A0B5] text-[#24A0B5] transition-colors"
                       >
                         Book Another Ticket
                       </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="flex-1 p-4 rounded-xl bg-[#24A0B5] text-white hover:bg-teal-400 transition-colors"
-                      >
-                        Download Ticket
-                      </motion.button>
+                      <div className="flex-1 flex space-x-2">
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={downloadTicket}
+                          className="flex-1 p-4 rounded-xl bg-[#24A0B5] text-white hover:bg-teal-400 transition-colors flex items-center justify-center"
+                        >
+                          <Download className="w-5 h-5 mr-2" />
+                          Download
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={shareTicket}
+                          className="p-4 rounded-xl bg-[#24A0B5] text-white hover:bg-teal-400 transition-colors"
+                        >
+                          <Share2 className="w-5 h-5" />
+                        </motion.button>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -331,7 +429,7 @@ const TicketBooking = () => {
                                 className="w-full h-full object-cover rounded-4xl transition-all duration-300 group-hover:opacity-50"
                               />
 
-                              <div className="absolute mt-[50px]  justify-center bg-[rgb(0,0,0,0.1)]  opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="absolute mt-[50px] justify-center bg-[rgb(0,0,0,0.1)] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                 <div className="flex justify-center">
                                   <Upload className="w-8 h-8 text-[#24A0B5] mb-2" />
                                 </div>
@@ -346,7 +444,7 @@ const TicketBooking = () => {
                               </div>
                             </div>
                           ) : (
-                            <div className="h-[240px] w-[240px] border-[#24A0B5] border-3 bg-[#0E464F] py-14 px-6 rounded-4xl absolute ">
+                            <div className="h-[240px] w-[240px] border-[#24A0B5] border-3 bg-[#0E464F] py-14 px-6 rounded-4xl absolute">
                               <div className="flex justify-center">
                                 <Upload className="w-8 h-8 text-[#24A0B5] mb-2" />
                               </div>
@@ -397,7 +495,7 @@ const TicketBooking = () => {
                               })
                             }
                             className="w-full bg-[#041E23] border-2 border-[#07373F] rounded-xl p-4 text-white"
-                            placeholder="hello@avioflagos.io"
+                            placeholder="hello@example.com"
                           />
                         </div>
 
@@ -430,10 +528,12 @@ const TicketBooking = () => {
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          onClick={() => setCurrentStep(3)}
+                          onClick={handleCompleteBooking}
                           className="flex-1 p-4 rounded-xl bg-[#24A0B5] text-white hover:bg-teal-400 transition-colors"
                         >
-                          Get My Free Ticket
+                          {event.tickets[selectedTicket || 0].price === "Free"
+                            ? "Get My Free Ticket"
+                            : "Complete Purchase"}
                         </motion.button>
                       </div>
                     </div>
